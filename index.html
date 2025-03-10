@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Posizione e Dati Solari</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        .card {
+            background: white;
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin: 1rem;
+            max-width: 800px;
+            width: 90%;
+        }
+        .sun {
+            width: 100px;
+            height: 100px;
+            background: radial-gradient(#ffd700, #ff8c00);
+            border-radius: 50%;
+            margin: 20px auto;
+        }
+        .data-row {
+            margin: 10px 0;
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>La tua posizione attuale</h1>
+        <div id="coordinates" class="data-row">
+            Caricamento posizione...
+        </div>
+        <div class="sun" id="sunIcon"></div>
+        <div id="sunData" class="data-row">
+            Caricamento dati solari...
+        </div>
+    </div>
+
+    <script>
+        function calculateSunPosition(lat, lon) {
+            const date = new Date();
+            const UTCtime = date.getTime() + (date.getTimezoneOffset() * 60000);
+            const t = new Date(UTCtime + (lon * 24000));
+            
+            // Convert to radians
+            const latRad = lat * Math.PI / 180;
+            const lonRad = lon * Math.PI / 180;
+            
+            // Julian date
+            const n = t.getTime() / 86400000 - (t.getTimezoneOffset() / 1440) + 2440587.5;
+            
+            // Solar mean anomaly
+            const M = (357.5291 + 0.98560028 * (n - 2451545)) % 360;
+            
+            // Equation of center
+            const C = 1.9148 * Math.sin(M * Math.PI / 180) + 0.0200 * Math.sin(2 * M * Math.PI / 180);
+            
+            // Ecliptic longitude
+            const λ = (M + C + 180 + 102.9372) % 360;
+            
+            // Solar declination
+            const δ = Math.asin(Math.sin(λ * Math.PI / 180) * Math.sin(23.44 * Math.PI / 180));
+            
+            // Hour angle
+            const H = (15 * (t.getUTCHours() - 12 + t.getUTCMinutes() / 60)) - lon;
+            
+            // Elevation angle
+            const el = Math.asin(Math.sin(δ) * Math.sin(latRad) + 
+                      Math.cos(δ) * Math.cos(latRad) * Math.cos(H * Math.PI / 180));
+            
+            // Azimuth angle
+            const az = Math.atan2(Math.sin(H * Math.PI / 180), 
+                      Math.cos(δ) * Math.tan(latRad) - Math.sin(δ) * Math.cos(H * Math.PI / 180));
+            
+            return {
+                elevation: el * 180 / Math.PI,
+                azimuth: (az * 180 / Math.PI + 180) % 360,
+                time: t.toLocaleTimeString()
+            };
+        }
+
+        function updatePosition(position) {
+            const coords = position.coords;
+            const sunPos = calculateSunPosition(coords.latitude, coords.longitude);
+            
+            document.getElementById('coordinates').innerHTML = `
+                🌍 Latitudine: ${coords.latitude.toFixed(4)}°<br>
+                🌎 Longitudine: ${coords.longitude.toFixed(4)}°<br>
+                📏 Precisione: ±${coords.accuracy.toFixed(0)} metri
+            `;
+            
+            document.getElementById('sunData').innerHTML = `
+                ☀️ Elevazione solare: ${sunPos.elevation.toFixed(2)}°<br>
+                🌅 Azimuth solare: ${sunPos.azimuth.toFixed(2)}°<br>
+                🕒 Ora locale: ${sunPos.time}
+            `;
+            
+            // Animazione del sole
+            const sunIcon = document.getElementById('sunIcon');
+            sunIcon.style.transform = `rotate(${sunPos.azimuth}deg) translateY(${100 - sunPos.elevation}px)`;
+        }
+
+        function handleError(error) {
+            console.error('Errore di geolocalizzazione:', error);
+            document.getElementById('coordinates').innerHTML = 
+                "Impossibile ottenere la posizione. Abilita i permessi di geolocalizzazione.";
+        }
+
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(updatePosition, handleError);
+        } else {
+            document.getElementById('coordinates').innerHTML = 
+                "Il tuo browser non supporta la geolocalizzazione.";
+        }
+    </script>
+</body>
+</html>

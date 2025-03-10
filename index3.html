@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Posizione Celeste</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(to bottom, #000428, #004e92);
+            color: white;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            width: 100%;
+            max-width: 1000px;
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2rem;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .celestial-body {
+            width: 100px;
+            height: 100px;
+            margin: 20px auto;
+            border-radius: 50%;
+            transition: transform 0.5s ease;
+        }
+        #sun {
+            background: radial-gradient(#ffd700, #ff8c00);
+            box-shadow: 0 0 50px #ff8c0055;
+        }
+        #moon {
+            background: radial-gradient(#d3d3d3, #808080);
+            box-shadow: 0 0 50px #ffffff55;
+            position: relative;
+        }
+        .data-row {
+            margin: 15px 0;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+        }
+        .phase {
+            width: 30px;
+            height: 30px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 50%;
+            position: absolute;
+            top: 10px;
+            right: 10px;
+        }
+        .planet {
+            width: 50px;
+            height: 50px;
+            margin: 10px auto;
+            border-radius: 50%;
+            transition: transform 0.5s ease;
+        }
+        #mercury { background: radial-gradient(#a8a8a8, #6b6b6b); }
+        #venus { background: radial-gradient(#ffcc99, #cc9966); }
+        #earth { background: radial-gradient(#6699ff, #3366cc); }
+        #mars { background: radial-gradient(#ff6666, #cc3333); }
+        #jupiter { background: radial-gradient(#ffcc66, #cc9933); }
+        #saturn { background: radial-gradient(#e6b800, #b38600); }
+        #uranus { background: radial-gradient(#66ccff, #3399cc); }
+        #neptune { background: radial-gradient(#6666ff, #3333cc); }
+    </style>
+</head>
+<body>
+    <h1>Posizione Celeste</h1>
+    <div class="container">
+        <div class="card">
+            <h2>La tua posizione</h2>
+            <div id="coordinates" class="data-row">
+                Caricamento posizione...
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>☀️ Sole</h2>
+            <div class="celestial-body" id="sun"></div>
+            <div id="sunData" class="data-row">
+                Caricamento dati solari...
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>🌙 Luna</h2>
+            <div class="celestial-body" id="moon">
+                <div class="phase" id="moonPhase"></div>
+            </div>
+            <div id="moonData" class="data-row">
+                Caricamento dati lunari...
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>🪐 Pianeti</h2>
+            <div id="planets">
+                <div class="planet" id="mercury"></div>
+                <div class="planet" id="venus"></div>
+                <div class="planet" id="earth"></div>
+                <div class="planet" id="mars"></div>
+                <div class="planet" id="jupiter"></div>
+                <div class="planet" id="saturn"></div>
+                <div class="planet" id="uranus"></div>
+                <div class="planet" id="neptune"></div>
+            </div>
+            <div id="planetsData" class="data-row">
+                Caricamento dati planetari...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Calcoli astronomici
+        function toRad(deg) { return deg * Math.PI / 180; }
+        function toDeg(rad) { return rad * 180 / Math.PI; }
+
+        function calculateSunPosition(lat, lon, date) {
+            const d = (date - new Date(2000, 0, 1, 12, 0, 0)) / 86400000;
+            
+            // Calcolo parametri orbitali
+            const L = 280.466 + 0.98564736 * d; // Ecliptic longitude
+            const M = 357.529 + 0.98560028 * d; // Mean anomaly
+            
+            // Correzione per eccentricità
+            const C = 1.915 * Math.sin(toRad(M)) + 0.020 * Math.sin(toRad(2 * M));
+            const lambda = L + C; // Ecliptic longitude corrected
+            
+            // Conversione a coordinate equatoriali
+            const ob = toRad(23.439 - 0.0000004 * d);
+            const ra = Math.atan2(
+                Math.sin(toRad(lambda)) * Math.cos(ob),
+                Math.cos(toRad(lambda))
+            );
+            const dec = Math.asin(Math.sin(toRad(lambda)) * Math.sin(ob));
+
+            // Calcolo posizione osservatore
+            const utc = date.getTime() + (date.getTimezoneOffset() * 60000);
+            const t = new Date(utc + (lon * 24000));
+            const H = (15 * (t.getUTCHours() - 12 + t.getUTCMinutes() / 60)) - lon;
+
+            // Conversione ad azimuth e elevazione
+            const latRad = toRad(lat);
+            const hRad = toRad(H * 15 - ra);
+            
+            const el = Math.asin(
+                Math.sin(dec) * Math.sin(latRad) + 
+                Math.cos(dec) * Math.cos(latRad) * Math.cos(hRad)
+            );
+            
+            const az = Math.atan2(
+                Math.sin(hRad),
+                Math.cos(hRad) * Math.sin(latRad) - Math.tan(dec) * Math.cos(latRad)
+            );
+
+            return {
+                elevation: toDeg(el),
+                azimuth: (toDeg(az) + 180) % 360,
+                time: t.toLocaleTimeString()
+            };
+        }
+
+        function calculateMoonPosition(lat, lon, date) {
+            const d = (date - new Date(2000, 0, 1, 12, 0, 0)) / 86400000;
+            
+            // Calcolo parametri orbitali
+            const L = 218.316 + 13.176396 * d; // Ecliptic longitude
+            const M = 134.963 + 13.064993 * d; // Mean anomaly
+            const F = 93.272 + 13.229350 * d; // Mean distance
+            
+            // Correzione per perturbazioni
+            const l = L + 6.289 * Math.sin(toRad(M));
+            const b = 5.128 * Math.sin(toRad(F));
+            const dt = 385001 - 20905 * Math.cos(toRad(M));
+
+            // Conversione a coordinate equatoriali
+            const ob = toRad(23.439 - 0.0000004 * d);
+            const ra = Math.atan2(
+                Math.sin(toRad(l)) * Math.cos(ob) - Math.tan(toRad(b)) * Math.sin(ob),
+                Math.cos(toRad(l))
+            );
+            const dec = Math.asin(
+                Math.sin(toRad(b)) * Math.cos(ob) + 
+                Math.cos(toRad(b)) * Math.sin(ob) * Math.sin(toRad(l))
+            );
+
+            // Calcolo posizione osservatore
+            const utc = date.getTime() + (date.getTimezoneOffset() * 60000);
+            const t = new Date(utc + (lon * 24000));
+            const H = (15 * (t.getUTCHours() - 12 + t.getUTCMinutes() / 60)) - lon;
+
+            // Conversione ad azimuth e elevazione
+            const latRad = toRad(lat);
+            const hRad = toRad(H * 15 - ra);
+            
+            const el = Math.asin(
+                Math.sin(dec) * Math.sin(latRad) + 
+                Math.cos(dec) * Math.cos(latRad) * Math.cos(hRad)
+            );
+            
+            const az = Math.atan2(
+                Math.sin(hRad),
+                Math.cos(hRad) * Math.sin(latRad) - Math.tan(dec) * Math.cos(latRad)
+            );
+
+            // Fase lunare
+            const sunL = (280.466 + 0.98564736 * d) % 360;
+            const phaseAngle = (L - sunL) % 360;
+            const phase = (1 - Math.cos(toRad(phaseAngle))) / 2;
+
+            return {
+                elevation: toDeg(el),
+                azimuth: (toDeg(az) + 180) % 360,
+                distance: dt,
+                phase: phase,
+                phaseAngle: phaseAngle
+            };
+        }
+
+        function calculatePlanetPositions(date) {
+            const d = (date - new Date(2000, 0, 1, 12, 0, 0)) / 86400000;
+            
+            // Longitudine eclittica approssimata per ogni pianeta
+            const planets = {
+                mercury: 77.456 + 4.09234 * d,
+                venus: 131.563 + 1.60213 * d,
+                earth: 102.937 + 0.985647 * d,
+                mars: 336.060 + 0.52403 * d,
+                jupiter: 14.331 + 0.08309 * d,
+                saturn: 93.057 + 0.03346 * d,
+                uranus: 173.005 + 0.01174 * d,
+                neptune: 48.123 + 0.00598 * d
+            };
+
+            // Normalizza le longitudini tra 0 e 360 gradi
+            for (const planet in planets) {
+                planets[planet] = planets[planet] % 360;
+            }
+
+            return planets;
+        }
+
+        function updatePosition(position) {
+            const coords = position.coords;
+            const now = new Date();
+            
+            // Calcolo posizione Sole
+            const sunPos = calculateSunPosition(coords.latitude, coords.longitude, now);
+            
+            // Calcolo posizione Luna
+            const moonPos = calculateMoonPosition(coords.latitude, coords.longitude, now);
+
+            // Calcolo posizione pianeti
+            const planetPositions = calculatePlanetPositions(now);
+
+            // Aggiornamento UI
+            document.getElementById('coordinates').innerHTML = `
+                🌍 Lat: ${coords.latitude.toFixed(4)}°<br>
+                🌎 Lon: ${coords.longitude.toFixed(4)}°
+            `;
+
+            document.getElementById('sunData').innerHTML = `
+                ☀️ Elevazione: ${sunPos.elevation.toFixed(1)}°<br>
+                🌅 Azimuth: ${sunPos.azimuth.toFixed(1)}°<br>
+                🕒 Ora solare: ${sunPos.time}
+            `;
+
+            document.getElementById('moonData').innerHTML = `
+                🌕 Elevazione: ${moonPos.elevation.toFixed(1)}°<br>
+                🌑 Azimuth: ${moonPos.azimuth.toFixed(1)}°<br>
+                📏 Distanza: ${(moonPos.distance/1000).toFixed(0)}k km<br>
+                🌓 Fase: ${getMoonPhase(moonPos.phaseAngle)}
+            `;
+
+            // Aggiornamento posizione pianeti
+            const planetsData = [];
+            for (const planet in planetPositions) {
+                const angle = planetPositions[planet];
+                planetsData.push(`${planet}: ${angle.toFixed(1)}°`);
+                document.getElementById(planet).style.transform = `rotate(${angle}deg)`;
+            }
+            document.getElementById('planetsData').innerHTML = planetsData.join('<br>');
+
+            // Animazioni
+            document.getElementById('sun').style.transform = 
+                `rotate(${sunPos.azimuth}deg) translateY(${100 - sunPos.elevation}px)`;
+            
+            document.getElementById('moon').style.transform = 
+                `rotate(${moonPos.azimuth}deg) translateY(${100 - moonPos.elevation}px)`;
+
+            // Fase lunare
+            const phaseDiv = document.getElementById('moonPhase');
+            phaseDiv.style.clipPath = `inset(0 ${50 - (moonPos.phase * 50)}% 0 0)`;
+        }
+
+        function getMoonPhase(angle) {
+            const phases = [
+                {min: 337.5, max: 22.5, name: 'Nuova'},
+                {min: 22.5, max: 67.5, name: 'Crescente'},
+                {min: 67.5, max: 112.5, name: 'Primo Quarto'},
+                {min: 112.5, max: 157.5, name: 'Gibbosa Crescente'},
+                {min: 157.5, max: 202.5, name: 'Piena'},
+                {min: 202.5, max: 247.5, name: 'Gibbosa Calante'},
+                {min: 247.5, max: 292.5, name: 'Ultimo Quarto'},
+                {min: 292.5, max: 337.5, name: 'Calante'}
+            ];
+            return phases.find(p => angle >= p.min && angle < p.max).name;
+        }
+
+        function handleError(error) {
+            console.error('Errore di geolocalizzazione:', error);
+            document.getElementById('coordinates').innerHTML = 'Errore nel caricamento della posizione.';
+        }
+
+        // Richiesta geolocalizzazione
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(updatePosition, handleError);
+        } else {
+            document.getElementById('coordinates').innerHTML = 'Geolocalizzazione non supportata dal browser.';
+        }
+    </script>
+</body>
+</html>
